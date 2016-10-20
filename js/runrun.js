@@ -9,8 +9,8 @@ function preload() {
     game.load.image('ground', 'assets/platform_alpha.png');
     game.load.image('star', 'assets/diamond.png');
     game.load.spritesheet('dude', 'assets/dude.png', 32, 48);
-    game.load.spritesheet('poop', 'assets/poop.png', 64, 64);
-    game.load.spritesheet('fire', 'assets/fire.png', 64, 64);
+    game.load.spritesheet('poop', 'assets/poop.png');
+    game.load.spritesheet('fire', 'assets/fire.png');
     game.load.image('game-over', 'assets/game-over.jpg');
 
 }
@@ -109,21 +109,20 @@ function update() {
         player.body.velocity.y = -350;
     }
 
-    if ((Math.floor(Math.random() * 100) + 1) == 99){
+    if ((Math.floor(Math.random() * 100)) == 99){
         spawnEnemy();
     }
 }
 
 function spawnEnemy(){
     enemy_list = ['poop', 'fire'];
-    selected_enemy = enemy_list[(Math.floor(Math.random() * 2) + 1)];
-    console.log('selected_enemy', selected_enemy);
+    selected_enemy = enemy_list[(Math.floor(Math.random() * 2))];
 
     if(cursors.left.isDown){
-        enemy = enemies.create(64, game.world.height - 64, selected_enemy);
+        enemy = enemies.create(64, game.world.height - 96, selected_enemy);
     }
     else if(cursors.right.isDown){
-        enemy = enemies.create(game.world.width - 64, game.world.height - 115, selected_enemy);
+        enemy = enemies.create(game.world.width - 64, game.world.height - 96, selected_enemy);
     }
 }
 
