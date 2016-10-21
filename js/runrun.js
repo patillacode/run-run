@@ -1,21 +1,28 @@
 var game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update });
-var background;
-var distance;
+var background, distance, gameIsPaused, lives, score;
 
 function preload() {
-    // game.load.image('sky', 'assets/sky.png');
     game.load.image('forest', 'assets/forest.png');
-    // game.load.image('ground', 'assets/platform.png');
     game.load.image('ground', 'assets/platform_alpha.png');
     game.load.image('star', 'assets/diamond.png');
     game.load.spritesheet('dude', 'assets/dude.png', 32, 48);
     game.load.spritesheet('poop', 'assets/poop.png');
     game.load.spritesheet('fire', 'assets/fire.png');
     game.load.image('game-over', 'assets/game-over.jpg');
-
+    game.load.spritesheet('restart-button', 'assets/restart-button.png');
+    game.load.audio('music', 'assets/audios/radioactive.mp3');
 }
 
 function create() {
+
+    // Music
+    music = game.add.audio('music');
+    music.play();
+
+
+    // Vars
+    lives = 3;
+    score = 0;
 
     // Add physics
     game.physics.startSystem(Phaser.Physics.ARCADE);
@@ -53,8 +60,8 @@ function create() {
     //  We need to enable physics on the player
     game.physics.arcade.enable(player);
     //  Player physics properties. Give the little guy a slight bounce.
-    player.body.bounce.y = 0.2;
-    player.body.gravity.y = 500;
+    player.body.bounce.y = 0.1;
+    player.body.gravity.y = 600;
     player.body.collideWorldBounds = true;
     //  Our two animations, walking left and right.
     player.animations.add('left', [0, 1, 2, 3], 10, true);
@@ -62,55 +69,66 @@ function create() {
 
     // Cursors
     cursors = game.input.keyboard.createCursorKeys();
+
+    // Text
+    scoreText = game.add.text(16, 16, 'Score: ' + score, { fontSize: '32px', fill: '#000' });
+    livesText = game.add.text(game.world.width - 128, 16, 'Lives: ' + lives, { fontSize: '32px', fill: '#000' });
+
 }
 
 function update() {
-    //  Collide the player and the stars with the platforms
-    var hitPlatform = game.physics.arcade.collide(player, platforms);
 
-    game.physics.arcade.overlap(player, enemies, gameOver, null, this);
+    if(!gameIsPaused){
+        //  Collide the player and the stars with the platforms
+        var hitPlatform = game.physics.arcade.collide(player, platforms);
 
-    // Players Movement
-    //  Reset the players velocity (movement)
-    player.body.velocity.x = 0;
-    if(cursors.left.isDown){
-        //  Move to the left
-        // player.body.velocity.x = -150;
-        player.animations.play('left');
-        // Scrolling background
-        background.tilePosition.x += 6;
-        distance -= 1;
-        if(enemies.children.length){
-            for(i=0; i<enemies.children.length; i++){
-                enemies.children[i].position.x += 6;
+        game.physics.arcade.overlap(player, enemies, gameOver, null, this);
+
+        // Players Movement
+        //  Reset the players velocity (movement)
+        player.body.velocity.x = 0;
+        if(cursors.left.isDown){
+            //  Move to the left
+            // player.body.velocity.x = -150;
+            player.animations.play('left');
+            // Scrolling background
+            background.tilePosition.x += 6;
+            distance -= 1;
+            if(enemies.children.length){
+                for(i=0; i<enemies.children.length; i++){
+                    enemies.children[i].position.x += 6;
+                }
             }
         }
-    }
-    else if(cursors.right.isDown){
-        //  Move to the right
-        // player.body.velocity.x = 150;
-        player.animations.play('right');
-        // Scrolling background
-        background.tilePosition.x -= 6;
-        distance += 1;
-        if(enemies.children.length){
-            for(i=0; i<enemies.children.length; i++){
-                enemies.children[i].position.x -= 6;
+        else if(cursors.right.isDown){
+            //  Move to the right
+            // player.body.velocity.x = 150;
+            player.animations.play('right');
+            // Scrolling background
+            background.tilePosition.x -= 6;
+            distance += 1;
+            if(enemies.children.length){
+                for(i=0; i<enemies.children.length; i++){
+                    enemies.children[i].position.x -= 6;
+                }
             }
+            score ++;
+            scoreText.text = 'Score: ' + score;
         }
-    }
-    else{
-        //  Stand still
-        player.animations.stop();
-        player.frame = 4;
-    }
-    //  Allow the player to jump if they are touching the ground.
-    if (cursors.up.isDown && player.body.touching.down && hitPlatform){
-        player.body.velocity.y = -350;
-    }
+        else{
+            //  Stand still
+            player.animations.stop();
+            player.frame = 4;
+        }
+        //  Allow the player to jump if they are touching the ground.
+        if (cursors.up.isDown && player.body.touching.down && hitPlatform){
+            player.body.velocity.y = -350;
+        }
 
-    if ((Math.floor(Math.random() * 100)) == 99){
-        spawnEnemy();
+        if ((Math.floor(Math.random() * 100)) == 99){
+            spawnEnemy();
+        }
+
     }
 }
 
@@ -127,6 +145,22 @@ function spawnEnemy(){
 }
 
 function gameOver(){
-    background = game.add.tileSprite(0, 0, 800, 600, 'game-over');
-    game.paused = true;
+    if(lives==0){
+        gameIsPaused = true;
+        background = game.add.tileSprite(0, 0, 800, 600, 'game-over');
+        restartButton = game.add.button(game.world.centerX - 32, 510, 'restart-button', restartButtonOnClick, this, 0, 0, 0);
+    }
+    else{
+        gameIsPaused = true;
+        lives--;
+        livesText.text = 'Lives: ' + lives;
+        currentTime = music.currentTime
+        music.pause();
+
+    }
+}
+
+function restartButtonOnClick(){
+    game.state.restart();
+    gameIsPaused = false;
 }
