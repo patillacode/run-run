@@ -9,16 +9,31 @@ function preload() {
     game.load.spritesheet('poop', 'assets/poop.png');
     game.load.spritesheet('fire', 'assets/fire.png');
     game.load.image('game-over', 'assets/game-over.jpg');
+    game.load.image('loading', 'assets/loading.gif');
     game.load.spritesheet('restart-button', 'assets/restart-button.png');
-    game.load.audio('music', 'assets/audios/radioactive.mp3');
+    game.load.audio('music', 'assets/audios/radioactive.wav');
+    game.load.audio('explosion', 'assets/audios/explosion.mp3');
+    game.load.audio('blaster', 'assets/audios/blaster.mp3');
+
 }
 
 function create() {
 
+    loading = game.add.tileSprite(0, 0, 800, 600, 'loading');
+
     // Music
     music = game.add.audio('music');
+    music.loop = true;
+    music.volume = 0.01;
     music.play();
 
+    explosion = game.add.audio('explosion');
+    explosion.volume = 0.01;
+    blaster = game.add.audio('blaster');
+    blaster.volume = 0.01;
+
+
+    game.sound.setDecodedCallback([music, explosion], removeLoadingScreen, this);
 
     // Vars
     lives = 3;
@@ -26,6 +41,7 @@ function create() {
 
     // Add physics
     game.physics.startSystem(Phaser.Physics.ARCADE);
+
 
     // Add background
     // game.add.sprite(0, 0, 'sky');
@@ -74,6 +90,8 @@ function create() {
     scoreText = game.add.text(16, 16, 'Score: ' + score, { fontSize: '32px', fill: '#000' });
     livesText = game.add.text(game.world.width - 128, 16, 'Lives: ' + lives, { fontSize: '32px', fill: '#000' });
 
+
+    loading.bringToTop();
 }
 
 function update() {
@@ -145,8 +163,11 @@ function spawnEnemy(){
 }
 
 function gameOver(){
-    if(lives==0){
+    blaster.play();
+    if(lives==1){
         gameIsPaused = true;
+        music.destroy();
+        explosion.play();
         background = game.add.tileSprite(0, 0, 800, 600, 'game-over');
         restartButton = game.add.button(game.world.centerX - 32, 510, 'restart-button', restartButtonOnClick, this, 0, 0, 0);
     }
@@ -154,13 +175,36 @@ function gameOver(){
         gameIsPaused = true;
         lives--;
         livesText.text = 'Lives: ' + lives;
-        currentTime = music.currentTime
         music.pause();
+        player.destroy();
+        enemies.destroy();
 
+        // The player and its settings
+        player = game.add.sprite(game.world.width/2 - 16, game.world.height - 500, 'dude');
+        //  We need to enable physics on the player
+        game.physics.arcade.enable(player);
+        //  Player physics properties. Give the little guy a slight bounce.
+        player.body.bounce.y = 0.1;
+        player.body.gravity.y = 600;
+        player.body.collideWorldBounds = true;
+        //  Our two animations, walking left and right.
+        player.animations.add('left', [0, 1, 2, 3], 10, true);
+        player.animations.add('right', [5, 6, 7, 8], 10, true);
+
+        enemies = game.add.group();
+        enemies.enableBody = true;
+
+        music.resume();
+
+        gameIsPaused = false;
     }
 }
 
 function restartButtonOnClick(){
     game.state.restart();
     gameIsPaused = false;
+}
+
+function removeLoadingScreen(){
+    loading.destroy();
 }
