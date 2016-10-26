@@ -28,9 +28,9 @@ function create() {
     music.play();
 
     explosion = game.add.audio('explosion');
-    explosion.volume = 0.01;
+    explosion.volume = 0.5;
     blaster = game.add.audio('blaster');
-    blaster.volume = 0.01;
+    blaster.volume = 0.5;
 
 
     game.sound.setDecodedCallback([music, explosion], removeLoadingScreen, this);
