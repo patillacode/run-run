@@ -1,8 +1,25 @@
 var game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update });
-var background, distance, gameIsPaused, lives, score;
+var background, distance, gameIsPaused, lives, score, player, speed;
 
-function preload() {
+//  The Google WebFont Loader will look for this object, so create it before loading the script.
+WebFontConfig = {
+
+    //  'active' means all requested fonts have finished loading
+    //  We set a 1 second delay before calling 'createText'.
+    //  For some reason if we don't the browser cannot render the text the first time it's created.
+    active: function() { game.time.events.add(Phaser.Timer.SECOND, createBanner, this); },
+
+    //  The Google Fonts we want to load (specify as many as you like in the array)
+    google: {
+      families: ['Revalia']
+    }
+
+};
+
+function preload(){
+
     game.load.image('forest', 'assets/forest.png');
+    game.load.image('diamond', 'assets/diamond.png');
     game.load.image('ground', 'assets/platform_alpha.png');
     game.load.image('star', 'assets/diamond.png');
     game.load.spritesheet('dude', 'assets/dude.png', 32, 48);
@@ -14,34 +31,43 @@ function preload() {
     game.load.audio('music', 'assets/audios/radioactive.wav');
     game.load.audio('explosion', 'assets/audios/explosion.mp3');
     game.load.audio('blaster', 'assets/audios/blaster.mp3');
+    game.load.audio('ping', 'assets/audios/p-ping.mp3');
+    game.load.audio('level-up', 'assets/audios/level_up.wav');
+
+    //  Load the Google WebFont Loader script
+    game.load.script('webfont', '//ajax.googleapis.com/ajax/libs/webfont/1.4.7/webfont.js');
 
 }
 
-function create() {
+function create(){
 
     loading = game.add.tileSprite(0, 0, 800, 600, 'loading');
+    gameIsPaused = true;
 
     // Music
     music = game.add.audio('music');
     music.loop = true;
-    music.volume = 0.01;
+    music.volume = 0.3;
     music.play();
 
     explosion = game.add.audio('explosion');
-    explosion.volume = 0.5;
+    explosion.volume = 0.6;
     blaster = game.add.audio('blaster');
-    blaster.volume = 0.5;
+    blaster.volume = 0.6;
+    ping = game.add.audio('ping');
+    ping.volume = 0.6;
+    levelUp = game.add.audio('level-up');
+    levelUp.volume = 0.6;
 
-
-    game.sound.setDecodedCallback([music, explosion], removeLoadingScreen, this);
 
     // Vars
     lives = 3;
     score = 0;
+    speed = 6;
+    speedUpdate = false;
 
     // Add physics
     game.physics.startSystem(Phaser.Physics.ARCADE);
-
 
     // Add background
     // game.add.sprite(0, 0, 'sky');
@@ -61,9 +87,12 @@ function create() {
     //  This stops it from falling away when you jump on it
     ground.body.immovable = true;
 
-
     enemies = game.add.group();
     enemies.enableBody = true;
+
+    items = game.add.group();
+    items.enableBody = true;
+
     //  Now let's create two ledges
     // var ledge = platforms.create(400, 400, 'ground');
     // ledge.body.immovable = true;
@@ -90,55 +119,42 @@ function create() {
     scoreText = game.add.text(16, 16, 'Score: ' + score, { fontSize: '32px', fill: '#000' });
     livesText = game.add.text(game.world.width - 128, 16, 'Lives: ' + lives, { fontSize: '32px', fill: '#000' });
 
-
     loading.bringToTop();
+    game.sound.setDecodedCallback([music, explosion, blaster, ping, ], removeLoadingScreen, this);
+    gameIsPaused = false;
 }
 
-function update() {
+function update(){
 
     if(!gameIsPaused){
-        //  Collide the player and the stars with the platforms
+        // Collide the player and the stars with the platforms
         var hitPlatform = game.physics.arcade.collide(player, platforms);
 
         game.physics.arcade.overlap(player, enemies, gameOver, null, this);
+        game.physics.arcade.overlap(player, items, getItem, null, this);
 
         // Players Movement
-        //  Reset the players velocity (movement)
         player.body.velocity.x = 0;
         if(cursors.left.isDown){
-            //  Move to the left
-            // player.body.velocity.x = -150;
+            // Move to the left
             player.animations.play('left');
-            // Scrolling background
-            background.tilePosition.x += 6;
             distance -= 1;
-            if(enemies.children.length){
-                for(i=0; i<enemies.children.length; i++){
-                    enemies.children[i].position.x += 6;
-                }
-            }
         }
         else if(cursors.right.isDown){
-            //  Move to the right
-            // player.body.velocity.x = 150;
+            // Move to the right
             player.animations.play('right');
-            // Scrolling background
-            background.tilePosition.x -= 6;
-            distance += 1;
-            if(enemies.children.length){
-                for(i=0; i<enemies.children.length; i++){
-                    enemies.children[i].position.x -= 6;
-                }
+            if(player.position.x < game.world.centerX){
+                player.position.x += 1;
             }
-            score ++;
-            scoreText.text = 'Score: ' + score;
+            distance += 1;
         }
         else{
-            //  Stand still
+            // Stand still
             player.animations.stop();
             player.frame = 4;
+            player.position.x -= speed;
         }
-        //  Allow the player to jump if they are touching the ground.
+        // Allow the player to jump if they are touching the ground.
         if (cursors.up.isDown && player.body.touching.down && hitPlatform){
             player.body.velocity.y = -350;
         }
@@ -146,20 +162,95 @@ function update() {
         if ((Math.floor(Math.random() * 100)) == 99){
             spawnEnemy();
         }
+        if ((Math.floor(Math.random() * 100)) == 99){
+            spawnItem();
+        }
+        // Scrolling background
+        background.tilePosition.x -= speed;
+        if(enemies.children.length){
+            for(i=0; i<enemies.children.length; i++){
+                enemies.children[i].position.x -= speed;
+            }
+        }
+        if(items.children.length){
+            for(i=0; i<items.children.length; i++){
+                items.children[i].position.x -= speed;
+            }
+        }
 
+        if((score%5000 === 0 && speedUpdate)){
+            levelUp.play();
+            speed ++;
+            lives ++;
+            speedUpdate = false;
+        }
     }
 }
 
 function spawnEnemy(){
     enemy_list = ['poop', 'fire'];
-    selected_enemy = enemy_list[(Math.floor(Math.random() * 2))];
+    selected_enemy = enemy_list[(Math.floor(Math.random() * enemy_list.length))];
 
-    if(cursors.left.isDown){
-        enemy = enemies.create(64, game.world.height - 96, selected_enemy);
+    enemy = enemies.create(game.world.width, game.world.height - 96, selected_enemy);
+}
+
+function spawnItem(){
+    items_list = ['diamond'];
+    selected_item = items_list[(Math.floor(Math.random() * items_list.length))];
+
+    if(cursors.right.isDown){
+        item = items.create(game.world.width - 64, game.world.height - 200, selected_item);
     }
-    else if(cursors.right.isDown){
-        enemy = enemies.create(game.world.width - 64, game.world.height - 96, selected_enemy);
-    }
+}
+
+function getItem(){
+    ping.play();
+    items.children[0].destroy();
+    score += 500;
+    scoreText.text = 'Score: ' + score;
+    speedUpdate = true;
+}
+
+function createBanner(){
+    text = game.add.text(game.world.centerX, 32, 'Run Run');
+    text.anchor.setTo(0.5);
+
+    text.font = 'Revalia';
+    text.fontSize = 60;
+
+    //  x0, y0 - x1, y1
+    grd = text.context.createLinearGradient(0, 0, 0, text.canvas.height);
+    grd.addColorStop(0, '#FFD6FF');
+    grd.addColorStop(1, '#FF4CB3');
+    text.fill = grd;
+
+    text.align = 'top';
+    text.stroke = '#FFF';
+    text.strokeThickness = 2;
+    text.setShadow(5, 5, 'rgba(0,0,0,0.5)', 5);
+
+    text.inputEnabled = true;
+}
+
+function createFinalScoreText() {
+    text = game.add.text(game.world.centerX, 32, 'Score: ' + score);
+    text.anchor.setTo(0.5);
+
+    text.font = 'Revalia';
+    text.fontSize = 60;
+
+    //  x0, y0 - x1, y1
+    grd = text.context.createLinearGradient(0, 0, 0, text.canvas.height);
+    grd.addColorStop(0, '#FF6000');
+    grd.addColorStop(1, '#FF6900');
+    text.fill = grd;
+
+    text.align = 'center';
+    text.stroke = '#000000';
+    text.strokeThickness = 2;
+    text.setShadow(5, 5, 'rgba(0,0,0,0.5)', 5);
+
+    text.inputEnabled = true;
 }
 
 function gameOver(){
@@ -169,7 +260,8 @@ function gameOver(){
         music.destroy();
         explosion.play();
         background = game.add.tileSprite(0, 0, 800, 600, 'game-over');
-        restartButton = game.add.button(game.world.centerX - 32, 510, 'restart-button', restartButtonOnClick, this, 0, 0, 0);
+        restartButton = game.add.button(0, 510, 'restart-button', restartButtonOnClick, this, 0, 0, 0);
+        createFinalScoreText();
     }
     else{
         gameIsPaused = true;
