@@ -183,6 +183,7 @@ function update(){
             speed ++;
             lives ++;
             speedUpdate = false;
+            livesText.text = 'Lives: ' + lives;
         }
     }
 }
